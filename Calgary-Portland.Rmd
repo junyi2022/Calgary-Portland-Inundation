@@ -1,19 +1,31 @@
 ---
-title: "CPLN 675: Spatial Predictive Modeling for Classification"
-author: "Michael Fichman, University of Pennsylvania"
-date: "2/14/2025"
+title: "Predict Inundation in Portland Using Inundation Model Trained on Calgary"
+author: "Junyi Yang, Yiming Shao"
+date: "3/23/2025"
 output:
   html_document:
     toc: true
     toc_float: true
+    theme: flatly
     code_folding: hide
-    code_download: true
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE,message = FALSE}
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE
+)
+
 knitr::opts_chunk$set(echo = TRUE)
 options(scipen=999)
 library(knitr)
+
 ```
 
 
