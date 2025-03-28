@@ -13,6 +13,196 @@ editor_options:
     wrap: 72
 ---
 
+
+------------------------------------------------------------------------------------------------
+## calgary five variables map visualization as following: 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(terra)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+```
+
+## 1. Load spatial data, including city boundary and variables
+```{r load-data, include=FALSE}
+# Define raw GitHub URLs for each raster layer
+url_elevation   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Elevation/cal_elevation.tif"
+url_dis_river <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Distance%20to%20River/dis_river_2.tif"
+url_flow_acc    <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Flow%20Accumulation/flow_acc_cal.tif"
+url_slope       <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif"
+url_dev   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson"
+url_for   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson"
+url_grass <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson"
+url_city  <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson"
+
+# Use temporary files to store downloaded raster data
+temp_elev   <- tempfile(fileext = ".tif")
+temp_river  <- tempfile(fileext = ".tif")
+temp_flow   <- tempfile(fileext = ".tif")
+temp_slope  <- tempfile(fileext = ".tif")
+
+# Function to download and load a raster from GitHub
+load_github_raster <- function(url) {
+  temp <- tempfile(fileext = ".tif")
+  download.file(url, temp, mode = "wb")
+  rast(temp)
+}
+
+# Define raw GitHub URLs
+url_elevation   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Elevation/cal_elevation.tif"
+url_dis_river   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Distance%20to%20River/dis_river_2.tif"
+url_flow_acc    <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Flow%20Accumulation/flow_acc_cal.tif"
+url_slope       <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif"
+
+# Load raster layers
+Elevation_cal <- load_github_raster(url_elevation)
+Dis_River_cal <- load_github_raster(url_dis_river)
+Flow_accu_cal <- load_github_raster(url_flow_acc)
+Slope_cal     <- load_github_raster(url_slope)
+
+# Load GeoJSON vector layers directly
+url_dev   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson"
+url_for   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson"
+url_grass <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson"
+url_city  <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson"
+
+developed_area <- st_read(url_dev)
+forest_area    <- st_read(url_for)
+grassland_area <- st_read(url_grass)
+city_boundary  <- st_read(url_city)
+```
+
+
+## 2. Visualize Variables in Calgary 
+```{r}
+# -------Plotting Elevation--------
+names(Elevation_cal) <- "elevation"
+elev_df <- as.data.frame(Elevation_cal, xy = TRUE, na.rm = TRUE)
+
+ggplot(elev_df, aes(x = x, y = y, fill = elevation)) +
+  geom_raster() +
+  scale_fill_viridis_c(name = "Elevation (m)", option = "viridis") +
+  coord_equal() +
+  labs(
+    title = "Elevation Map of Calgary Area",
+    x = "Easting (meters)",   # more accurate label
+    y = "Northing (meters)"
+  ) +
+  theme_minimal()
+
+# ----------Plotting Slope----------
+names(Slope_cal) <- "slope"
+city_boundary_proj <- st_transform(city_boundary, crs(Slope_cal))
+slope_masked <- mask(crop(Slope_cal, vect(city_boundary_proj)), vect(city_boundary_proj))
+slope_df <- as.data.frame(slope_masked, xy = TRUE, na.rm = TRUE)
+ggplot(slope_df, aes(x = x, y = y, fill = slope)) +
+  geom_raster() +
+  scale_fill_viridis_c(name = "Slope (degrees)", option = "magma", direction = -1) +
+  coord_equal() +
+  labs(
+    title = "Slope Map of Calgary ",
+    x = "Easting (meters)",
+    y = "Northing (meters)"
+  ) +
+  theme_minimal()
+
+# --------Plotting distance to river----------
+names(Dis_River_cal) <- "distance_to_river"
+city_boundary_proj <- st_transform(city_boundary, crs(Dis_River_cal))
+river_masked <- mask(crop(Dis_River_cal, vect(city_boundary_proj)), vect(city_boundary_proj))
+river_df <- as.data.frame(river_masked, xy = TRUE, na.rm = TRUE)
+colnames(river_df)[3] <- "distance_to_river"
+ggplot(river_df, aes(x = x, y = y, fill = distance_to_river)) +
+  geom_raster() +
+  scale_fill_viridis_c(
+    name = "Distance to River (m)",
+    option = "plasma",
+    direction = -1
+  ) +
+  coord_equal() +
+  labs(
+    title = "Updated Distance to River",
+    x = "Easting (meters)",
+    y = "Northing (meters)"
+  ) +
+  theme_minimal()
+
+# --------Plotting flow accumulation--------
+names(Flow_accu_cal) <- "flow_acc"
+city_boundary_proj <- st_transform(city_boundary, crs(Flow_accu_cal))
+flow_masked <- mask(crop(Flow_accu_cal, vect(city_boundary_proj)), vect(city_boundary_proj))
+flow_df <- as.data.frame(flow_masked, xy = TRUE, na.rm = TRUE)
+colnames(flow_df)[3] <- "flow_acc"
+
+flow_mean <- mean(flow_df$flow_acc, na.rm = TRUE)
+flow_sd   <- sd(flow_df$flow_acc, na.rm = TRUE)
+lower <- flow_mean - 2 * flow_sd
+upper <- flow_mean + 2 * flow_sd
+
+flow_df <- flow_df %>%
+  mutate(flow_stretched = pmax(pmin(flow_acc, upper), lower))
+ggplot(flow_df, aes(x = x, y = y, fill = flow_stretched)) +
+  geom_raster() +
+  scale_fill_viridis_c(
+    name = "Flow Accumulation (±2 SD)",
+    option = "inferno"
+  ) +
+  coord_equal() +
+  labs(
+    title = "Flow Accumulation in Calgary (Stretched by ±2 SD)",
+    x = "Easting (meters)",
+    y = "Northing (meters)"
+  ) +
+  theme_minimal()
+
+# -------Plotting land cover by grassland, developed, and forest------
+target_crs <- crs(Elevation_cal)
+developed_area  <- st_transform(developed_area, target_crs)
+grassland_area  <- st_transform(grassland_area, target_crs)
+forest_area     <- st_transform(forest_area, target_crs)
+developed_area  <- st_zm(developed_area)
+grassland_area  <- st_zm(grassland_area)
+forest_area     <- st_zm(forest_area)
+developed_area  <- developed_area  %>% select(geometry) %>% mutate(landcover = "Developed")
+grassland_area  <- grassland_area  %>% select(geometry) %>% mutate(landcover = "Grassland")
+forest_area     <- forest_area     %>% select(geometry) %>% mutate(landcover = "Forest")
+landcover_plot <- rbind(developed_area, grassland_area, forest_area)
+
+ggplot() +
+  geom_sf(data = landcover_plot, aes(fill = landcover), color = NA, alpha = 0.8) +
+  scale_fill_manual(
+    values = c(
+      "Developed" = "#e41a1c",
+      "Grassland" = "#4daf4a",
+      "Forest"    = "#377eb8"
+    ),
+    name = "Land Cover Type"
+  ) +
+  coord_sf() +
+  labs(
+    title = "Land Cover Map of Calgary",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10)
+  )
+```
+
+# End
+--------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
 ```{r setup, include=FALSE,message = FALSE}
 
 knitr::opts_chunk$set(
