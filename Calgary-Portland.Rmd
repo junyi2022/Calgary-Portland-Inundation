@@ -74,9 +74,9 @@ develop_Portland <- st_read("data/Portland/original/developed/develop.shp")
 # landcover forest
 forest_Portland <- st_read("data/Portland/original/forest/forest.shp")
 # landcover grassland
-forest_Portland <- st_read("data/Portland/original/grassland/grassland.shp")
+grassland_Portland <- st_read("data/Portland/original/grassland/grassland.shp")
 # water
-water_Portland <- st_read("data/Portland/original/water/water_merge.shp")
+water_Portland <- st_read("data/Portland/original/water/water_merge.geojson")
 
 # load fishnet data
 
@@ -130,14 +130,14 @@ Notice we set the `fill` of our `geom_sf` to `as.factor(preserve)` and set the c
 Can you play with this ggplot and switch the colors and styling?
 
 ```{r plot_fishnet}
-ggplot() + 
-  geom_sf(data=preserve, aes(fill=as.factor(preserve)), color = "transparent") +
-  geom_sf(data = counties, fill = "transparent", color = "white")+
-  scale_fill_manual(values = c("dark blue", "dark green"),
-                    labels = c("Not Preserved","Preserved"),
-                    name = "") +
-  labs(title="Protected lands in Pennsylvania (Fishnet)") +
+
+
+ggplot() +
+  geom_sf(data = fishnet_boundary_Portland)+
+  geom_sf(data = fishnet_Portland, aes(fill = Flow_accu), color = "transparent") +
+  labs(title="Water Area in Portland") +
   theme_void()
+
 ```
 
 ## 3.2. Plots
