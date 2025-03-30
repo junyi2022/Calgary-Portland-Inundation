@@ -13,68 +13,127 @@ editor_options:
     wrap: 72
 ---
 
+# 1. Introduction
 
-------------------------------------------------------------------------------------------------
-## calgary five variables map visualization as following: 
+Portland uses Calgary model. Why
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+# 2. Setup
+
+To get started, let's install libraries.
+
+If you don't have particular libraries installed, run the command `install.packages('name_of_package_in_quotes')` with the relevant package, and then call them into your environment with a `library` command.
+
+```{r setup, include=FALSE, warning = FALSE, message = FALSE}
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE
+)
+
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+library(knitr)
 library(terra)
 library(sf)
 library(dplyr)
 library(ggplot2)
 library(viridis)
-library(patchwork)
+library(raster)
+# library(patchwork)
 ```
+
+```{r libraries, warning = FALSE, message = FALSE}
+library(caret)
+library(pscl)
+library(plotROC)
+library(pROC)
+library(sf)
+library(tidyverse)
+library(kableExtra)
+library(tigris)
+```
+
+## calgary five variables map visualization as following: 
 
 ## 1. Load spatial data, including city boundary and variables
-```{r load-data, include=FALSE}
-# Define raw GitHub URLs for each raster layer
-url_elevation   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Elevation/cal_elevation.tif"
-url_dis_river <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Distance%20to%20River/dis_river_2.tif"
-url_flow_acc    <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Flow%20Accumulation/flow_acc_cal.tif"
-url_slope       <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif"
-url_dev   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson"
-url_for   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson"
-url_grass <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson"
-url_city  <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson"
+```{r load-data, include=FALSE, warning = FALSE, message = FALSE, results = "hide"}
 
-# Use temporary files to store downloaded raster data
-temp_elev   <- tempfile(fileext = ".tif")
-temp_river  <- tempfile(fileext = ".tif")
-temp_flow   <- tempfile(fileext = ".tif")
-temp_slope  <- tempfile(fileext = ".tif")
-
-# Function to download and load a raster from GitHub
-load_github_raster <- function(url) {
-  temp <- tempfile(fileext = ".tif")
-  download.file(url, temp, mode = "wb")
-  rast(temp)
-}
-
-# Define raw GitHub URLs
-url_elevation   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Elevation/cal_elevation.tif"
-url_dis_river   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Distance%20to%20River/dis_river_2.tif"
-url_flow_acc    <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Flow%20Accumulation/flow_acc_cal.tif"
-url_slope       <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif"
+# Calgary data
 
 # Load raster layers
-Elevation_cal <- load_github_raster(url_elevation)
-Dis_River_cal <- load_github_raster(url_dis_river)
-Flow_accu_cal <- load_github_raster(url_flow_acc)
-Slope_cal     <- load_github_raster(url_slope)
+Elevation_cal <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Elevation/cal_elevation.tif")
+Dis_River_cal <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Distance%20to%20River/dis_river_2.tif")
+Flow_accu_cal <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Flow%20Accumulation/flow_acc_cal.tif")
+Slope_cal     <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif")
 
-# Load GeoJSON vector layers directly
-url_dev   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson"
-url_for   <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson"
-url_grass <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson"
-url_city  <- "https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson"
+# Load vector layers
+developed_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson")
+forest_cal    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson")
+grassland_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson")
+city_boundary_cal  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson")
+# fishnet
+fishnet_cal <- st_read("data/Calgary/Fishnet_Calgary/Calgary_Fishnet.shp")
 
-developed_area <- st_read(url_dev)
-forest_area    <- st_read(url_for)
-grassland_area <- st_read(url_grass)
-city_boundary  <- st_read(url_city)
+
+# Portland data
+
+# Load raster layers
+Elevation_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/dem/dem_mercator_clip.tif")
+Dis_River_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/disWater/dis_water_clip.tif")
+Flow_accu_por <- raster("data/Portland/original/flow/flow_accu.tif")
+Slope_por     <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif")
+
+# Load vector layers
+developed_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson")
+forest_por    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson")
+grassland_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson")
+city_boundary_por  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson")
+# fishnet
+fishnet_por <- st_read("data/Calgary/Fishnet_Calgary/Calgary_Fishnet.shp")
 ```
+
+Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
+
+How do you make a fishnet on your own? You can learn about that in the [Intro to R](https://mafichman.github.io/R_FAQ_For_Planners/#Making_a_%E2%80%9CFishnet%E2%80%9D) course text.
+
+```{r load_Portland_data, warning = FALSE, message = FALSE, results = "hide"}
+
+# load original data
+
+# Load dem TIFF
+dem_Portland <- raster("data/Portland/original/dem/dem_mercator_clip.tif")
+# Load slope TIFF
+slope_Portland <- raster("data/Portland/original/slope/slope_clip.tif")
+# Load distance to water TIFF
+disWater_Portland <- raster("data/Portland/original/disWater/dis_water_clip.tif")
+
+# landcover developed
+develop_Portland <- st_read("data/Portland/original/developed/develop.shp")
+# landcover forest
+forest_Portland <- st_read("data/Portland/original/forest/forest.shp")
+# landcover grassland
+grassland_Portland <- st_read("data/Portland/original/grassland/grassland.shp")
+# water
+water_Portland <- st_read("data/Portland/original/water/water_merge.geojson")
+
+# load fishnet data
+
+# fishnet value
+fishnet_Portland <- st_read("data/Portland/fishnet/fishnet200m_withvalue.shp")
+# fishnet boundary
+fishnet_boundary_Portland <- st_read("data/Portland/fishnet/fishnetBoundary.shp")
+# original Portland boundary
+fishnet_boundary_Portland <- st_read("data/Portland/fishnet/portlandBoundary.shp")
+
+```
+
+We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of metre.
+
+# 3. Exploratory analysis
+
+## 3.1. Maps
 
 
 ## 2. Visualize Variables in Calgary 
@@ -196,130 +255,34 @@ ggplot() +
   )
 ```
 
-# End
---------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-```{r setup, include=FALSE,message = FALSE}
-
-knitr::opts_chunk$set(
-  echo = TRUE,
-  message = FALSE,
-  warning = FALSE,
-  cache = TRUE
-)
-
-knitr::opts_chunk$set(echo = TRUE)
-options(scipen=999)
-library(knitr)
-
-```
-
-
-# 1. Introduction
-
-Recall our site suitability exercise in Week 1 - we used our own spatial decision factors, or "weights" to impose a rule-based system for identifying land areas. We are going to learn an alternative approach, where we use a statistical model to algorithmically determine the weights and subsequent siting.
-
-If you have never used logistic regression, or "logit" modeling, make sure you read the class tutorial *Introduction to Applied Predictive Modeling* to see the basic workflow for training and testing models.
-
-The use case is as follows - assume you are a program manager at a land conservation non-profit, and you are seeking to use your resources to acquire land to conserve. Given all the land in Pennsylvania, it's hard know where to start, so you need to find a way to identify suitable areas to investigate for acquisition. By using a predictive model, you can identify likely lands and begin to research their ownership, and determine whether they are available.
-
-This is a relatively simplified exercise - there are some detailed ways to "tune" models to make them more powerful and flexible - to introduce you to logistic regression as a tool for classification. You will be able to use this general workflow in your midterm project, when you will create your own features for a similar model.
-
-*This material is based on in-class exercises developed in conjunction with the late Prof. Ken Steif.*
-
-## 1.1. Learning objectives
-
-1. Use binomial logistic regression to create a classification prediction.
-
-2. Use training and testing data to tune a model.
-
-3. Learn about goodness of fit and error metrics for classification models.
-
-4. Learn about the properties and uses of long data.
-
-5. Understand the methods you will be using on Assignment 3 and understand the predictive modeling workflow.
-
-# 2. Setup
-
-To get started, let's install libraries.
-
-If you don't have particular libraries installed, run the command `install.packages('name_of_package_in_quotes')` with the relevant package, and then call them into your environment with a `library` command.
-
-```{r libraries, warning = FALSE, message = FALSE}
-library(caret)
-library(pscl)
-library(plotROC)
-library(pROC)
-library(sf)
-library(tidyverse)
-library(knitr)
-library(kableExtra)
-library(tigris)
-library(viridis)
-```
-
-
-Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
-
-How do you make a fishnet on your own? You can learn about that in the [Intro to R](https://mafichman.github.io/R_FAQ_For_Planners/#Making_a_%E2%80%9CFishnet%E2%80%9D) course text.
-
-```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
-preserve <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/fishnet3k_pa_JoinDEM_Slope_distSlope_distUrban_landCover_distRivers.geojson")
-
-protected <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_7_10/data/pa_conservation/pa_protected_lands2.geojson")
-```
-
-We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of decimal degrees (e.g. lat/lon). We want to re-project it to something with a linear unit in feet or meters so that we can do various distance measurements later on.
-
-Let's project it to PA State Plane, which has a CRS (coordinate reference system) of 2272.
-
-Check out [spatialreference.org](spatialreference.org) for the crs numbers of all the coordinate systems out there that you might want to use.
-
-```{r transform}
-preserve <- preserve %>%
-  st_transform(crs = 2272)
-
-protected <- protected %>%
-  st_transform(crs = 2272)
-
-```
-
-Let's also load a shape of PA counties from the US Census via the `tigris` package, make sure it's an sf object (`st_as_sf`) and reproject it to crs = 2272 like our other data (`st_transform`).
-
-```{r pa_shp, message= FALSE, warning = FALSE, results = "hide"}
-counties <- counties('PA') %>%
-  st_as_sf() %>%
-  st_transform(crs = 2272)
-```
-
-# 3. Exploratory analysis
-
-Let’s start by checking out the variables we have in our datasets using the `glimpse` command.
-
-```{r glimpse1, eval=FALSE}
-glimpse(preserve)
-
-glimpse(protected)
-```
-
-## 3.1. Maps
 
 Let's plot the sf object of our protected lands on top of our counties. We give the shape some color and transparency (alpha).
 
 ```{r first_plot, warning = FALSE, message = FALSE}
 ggplot() +
-  geom_sf(data = counties)+
-  geom_sf(data=protected, 
-          fill = "dark green", 
-          color = "dark green",
+  geom_sf(data = fishnet_boundary_Portland)+
+  geom_sf(data = forest_Portland, 
+          fill = "blue", 
+          color = "blue",
           alpha = 0.6) +
-  labs(title="Protected lands in Pennsylvania") +
+  labs(title="Water Area in Portland") +
   theme_void()
 ```
+
+```{r}
+# Convert raster to data frame
+dem_df_Portland <- as.data.frame(dem_Portland, xy = TRUE)
+colnames(dem_df_Portland) <- c("x", "y", "elevation")
+
+# Create plot
+ggplot() +
+  geom_raster(data = dem_df_Portland, aes(x = x, y = y, fill = elevation)) +
+  scale_fill_gradientn(colors = terrain.colors(100)) +
+  ggtitle("DEM Visualization") +
+  coord_equal()  +
+  theme_void()
+```
+
 
 Now let’s plot the fishnet version. 
 
@@ -328,14 +291,14 @@ Notice we set the `fill` of our `geom_sf` to `as.factor(preserve)` and set the c
 Can you play with this ggplot and switch the colors and styling?
 
 ```{r plot_fishnet}
-ggplot() + 
-  geom_sf(data=preserve, aes(fill=as.factor(preserve)), color = "transparent") +
-  geom_sf(data = counties, fill = "transparent", color = "white")+
-  scale_fill_manual(values = c("dark blue", "dark green"),
-                    labels = c("Not Preserved","Preserved"),
-                    name = "") +
-  labs(title="Protected lands in Pennsylvania (Fishnet)") +
+
+
+ggplot() +
+  geom_sf(data = fishnet_boundary_Portland)+
+  geom_sf(data = fishnet_Portland, aes(fill = Flow_accu), color = "transparent") +
+  labs(title="Water Area in Portland") +
   theme_void()
+
 ```
 
 ## 3.2. Plots
