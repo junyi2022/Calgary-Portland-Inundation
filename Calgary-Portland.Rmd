@@ -55,9 +55,12 @@ library(kableExtra)
 library(tigris)
 ```
 
-## calgary five variables map visualization as following: 
+## 2.1 Load spatial data, including city boundary and variables
 
-## 1. Load spatial data, including city boundary and variables
+Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
+
+We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of meter.
+
 ```{r load-data, include=FALSE, warning = FALSE, message = FALSE, results = "hide"}
 
 # Calgary data
@@ -82,61 +85,27 @@ fishnet_cal <- st_read("data/Calgary/Fishnet_Calgary/Calgary_Fishnet.shp")
 # Load raster layers
 Elevation_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/dem/dem_mercator_clip.tif")
 Dis_River_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/disWater/dis_water_clip.tif")
-Flow_accu_por <- raster("data/Portland/original/flow/flow_accu.tif")
-Slope_por     <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Slope/slope_cal.tif")
+Flow_accu_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/flow/flow_accu.tif")
+Slope_por     <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/slope/slope_clip.tif")
 
 # Load vector layers
-developed_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson")
-forest_por    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson")
-grassland_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson")
-city_boundary_por  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson")
+developed_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/developed/develop.geojson")
+forest_por    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/forest/forest.geojson")
+grassland_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/grassland/grassland.geojson")
+city_boundary_por  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/fishnet/fishnetBoundary.geojson")
 # fishnet
-fishnet_por <- st_read("data/Calgary/Fishnet_Calgary/Calgary_Fishnet.shp")
-```
-
-Let’s load our data. We are going to include two datasets: `preserve`, which is a fishnet dataset representing preserved land, and `protected`, which is the original protected lands shapefile.
-
-How do you make a fishnet on your own? You can learn about that in the [Intro to R](https://mafichman.github.io/R_FAQ_For_Planners/#Making_a_%E2%80%9CFishnet%E2%80%9D) course text.
-
-```{r load_Portland_data, warning = FALSE, message = FALSE, results = "hide"}
-
-# load original data
-
-# Load dem TIFF
-dem_Portland <- raster("data/Portland/original/dem/dem_mercator_clip.tif")
-# Load slope TIFF
-slope_Portland <- raster("data/Portland/original/slope/slope_clip.tif")
-# Load distance to water TIFF
-disWater_Portland <- raster("data/Portland/original/disWater/dis_water_clip.tif")
-
-# landcover developed
-develop_Portland <- st_read("data/Portland/original/developed/develop.shp")
-# landcover forest
-forest_Portland <- st_read("data/Portland/original/forest/forest.shp")
-# landcover grassland
-grassland_Portland <- st_read("data/Portland/original/grassland/grassland.shp")
-# water
-water_Portland <- st_read("data/Portland/original/water/water_merge.geojson")
-
-# load fishnet data
-
-# fishnet value
-fishnet_Portland <- st_read("data/Portland/fishnet/fishnet200m_withvalue.shp")
-# fishnet boundary
-fishnet_boundary_Portland <- st_read("data/Portland/fishnet/fishnetBoundary.shp")
-# original Portland boundary
-fishnet_boundary_Portland <- st_read("data/Portland/fishnet/portlandBoundary.shp")
+fishnet_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/fishnet/fishnet200m_withvalue.geojson")
 
 ```
 
-We are going to load data in that are projected in WGS 84, which is the "web mercator" coordinate system, which is in units of metre.
+## 2.2 Normalize elevation and flow accumulation data in two cities
 
 # 3. Exploratory analysis
 
 ## 3.1. Maps
 
+### 3.1.1 Elevation
 
-## 2. Visualize Variables in Calgary 
 ```{r}
 # -------Plotting Elevation--------
 names(Elevation_cal) <- "elevation"
@@ -260,8 +229,8 @@ Let's plot the sf object of our protected lands on top of our counties. We give 
 
 ```{r first_plot, warning = FALSE, message = FALSE}
 ggplot() +
-  geom_sf(data = fishnet_boundary_Portland)+
-  geom_sf(data = forest_Portland, 
+  #geom_sf(data = fishnet_boundary_Portland)+
+  geom_sf(data = developed_por, 
           fill = "blue", 
           color = "blue",
           alpha = 0.6) +
