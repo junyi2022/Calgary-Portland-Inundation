@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="en"><Esri><CreaDate>20250326</CreaDate><CreaTime>13203200</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="d:\arcgis\Resources\ArcToolbox\toolboxes\Spatial Analyst Tools.tbx\FlowAccumulation" Date="20250326" Time="132032">FlowAccumulation flow_direct.tif D:\UPenn\Class\Spring_2025\landuse_modeling\assignments\midterm_project\GISdata\water\flow_accu.tif # INTEGER D8</Process></lineage></DataProperties></Esri></metadata>

@@ -1,2 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<metadata xml:lang="en"><Esri><CreaDate>20250326</CreaDate><CreaTime>15552500</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="d:\arcgis\Resources\ArcToolbox\toolboxes\Conversion Tools.tbx\RasterToPolygon" Date="20250326" Time="155525">RasterToPolygon landcover_reclass.tif D:\UPenn\Class\Spring_2025\landuse_modeling\assignments\midterm_project\GISdata\landcover\grassland.shp NO_SIMPLIFY Value SINGLE_OUTER_PART #</Process></lineage></DataProperties></Esri></metadata>
