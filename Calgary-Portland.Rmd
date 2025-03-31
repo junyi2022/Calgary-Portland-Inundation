@@ -41,6 +41,7 @@ library(dplyr)
 library(ggplot2)
 library(viridis)
 library(raster)
+library(scales)
 # library(patchwork)
 ```
 
@@ -77,7 +78,7 @@ forest_cal    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Po
 grassland_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson")
 city_boundary_cal  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson")
 # fishnet
-fishnet_cal <- st_read("data/Calgary/Fishnet_Calgary/Calgary_Fishnet.shp")
+fishnet_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Fishnet_Calgary/Calgary_fishnet.geojson")
 
 
 # Portland data
@@ -99,6 +100,20 @@ fishnet_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Port
 ```
 
 ## 2.2 Normalize elevation and flow accumulation data in two cities
+
+Why elevation scale to 0-300: the calgary and portland elevation range is xxx and xxx, about 300 difference. Wht scale elevation
+
+why scale flow accumulation
+
+```{r}
+
+fishnet_cal$Nor_Elevation <- rescale(fishnet_cal$Elevation, to = c(0, 300))
+fishnet_cal$Nor_Flow_accu <- rescale(fishnet_cal$Flow_accu, to = c(0, 10000))
+
+fishnet_por$Nor_Elevation <- rescale(fishnet_por$Elevation, to = c(0, 300))
+fishnet_por$Nor_Flow_accu <- rescale(fishnet_por$Flow_accu, to = c(0, 10000))
+
+```
 
 # 3. Exploratory analysis
 
