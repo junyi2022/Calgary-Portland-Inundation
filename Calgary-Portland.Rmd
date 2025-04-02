@@ -642,7 +642,7 @@ plot_grid(
 
 ### 7.2 Predictive Maps for Portland
 
-### 7.2.1 Input Spatial Variables in Portland
+#### 7.2.1 Input Spatial Variables in Portland
 
 The prediction of Portland uses the same set of variables as Calgary and are processed in the same way.   
 
@@ -714,7 +714,7 @@ plot_grid(
  )
 ```
 
-### 7.2.2 Prediction of Flood Inundation Probability in Portland
+#### 7.2.2 Prediction of Flood Inundation Probability in Portland
 
 ```{r fig.height=6, fig.width=8}
 fishnet_por$portlandPredictions <- predict(floodModel, 
