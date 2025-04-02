@@ -63,6 +63,14 @@ library(viridis)
 library(raster)
 library(scales)
 library(patchwork)
+library(cowplot)
+# library(grid)
+# library(gridExtra)
+# library(patchwork)
+
+# Define custom color gradient
+my_colors <- c("#033E56", "#9AC3BB", "#D3D477",  "#FAAE41", "#ED6328")
+
 ```
 
 ```{r libraries, warning = FALSE, message = FALSE}
@@ -98,9 +106,35 @@ Slope_cal     <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Por
 developed_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Developed.geojson")
 forest_cal    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Forest.geojson")
 grassland_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/Grassland.geojson")
+
 city_boundary_cal  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/shapefile_city_cover/calgary_city_boundary.geojson")
+city_boundary_cal_proj <- st_transform(city_boundary_cal, crs(Dis_River_cal))
+city_boundary_cal_vect <- vect(city_boundary_cal_proj)
+
 # fishnet
 fishnet_cal <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Calgary/Fishnet_Calgary/Calgary_fishnet.geojson")
+
+# prepare raster data for plots
+names(Elevation_cal) <- "Elevation"
+Elevation_cal_df <- as.data.frame(Elevation_cal, xy = TRUE, na.rm = TRUE)
+
+names(Dis_River_cal) <- "Dis_River"
+Dis_River_cal_terra <- rast(Dis_River_cal)
+Dis_River_cal_cropped <- crop(Dis_River_cal_terra, city_boundary_cal_vect)
+Dis_River_cal_masked <- mask(Dis_River_cal_cropped, city_boundary_cal_vect)
+Dis_River_cal_df <- as.data.frame(Dis_River_cal_masked, xy = TRUE, na.rm = TRUE)
+
+names(Flow_accu_cal) <- "Flow_accu"
+Flow_accu_cal_terra <- rast(Flow_accu_cal)
+Flow_accu_cal_cropped <- crop(Flow_accu_cal_terra, city_boundary_cal_vect)
+Flow_accu_cal_masked <- mask(Flow_accu_cal_cropped, city_boundary_cal_vect)
+Flow_accu_cal_df <- as.data.frame(Flow_accu_cal_masked, xy = TRUE, na.rm = TRUE)
+
+names(Slope_cal) <- "Slope"
+Slope_cal_terra <- rast(Slope_cal)
+Slope_cal_cropped <- crop(Slope_cal_terra, city_boundary_cal_vect)
+Slope_cal_masked <- mask(Slope_cal_cropped, city_boundary_cal_vect)
+Slope_cal_df <- as.data.frame(Slope_cal_masked, xy = TRUE, na.rm = TRUE)
 
 
 # Portland data
@@ -111,11 +145,24 @@ Dis_River_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Por
 Flow_accu_por <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/flow/flow_accu.tif")
 Slope_por     <- raster("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/slope/slope_clip.tif")
 
+names(Elevation_por) <- "Elevation"
+Elevation_por_df <- as.data.frame(Elevation_por, xy = TRUE, na.rm = TRUE)
+
+names(Dis_River_por) <- "Dis_River"
+Dis_River_por_df <- as.data.frame(Dis_River_por, xy = TRUE, na.rm = TRUE)
+
+names(Flow_accu_por) <- "Flow_accu"
+Flow_accu_por_df <- as.data.frame(Flow_accu_por, xy = TRUE, na.rm = TRUE)
+
+names(Slope_por) <- "Slope"
+Slope_por_df <- as.data.frame(Slope_por, xy = TRUE, na.rm = TRUE)
+
 # Load vector layers
 developed_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/developed/develop.geojson")
 forest_por    <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/forest/forest.geojson")
 grassland_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/original/grassland/grassland.geojson")
 city_boundary_por  <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/fishnet/fishnetBoundary.geojson")
+
 # fishnet
 fishnet_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Portland-Inundation/main/data/Portland/fishnet/fishnet200m_withvalue.geojson")
 
@@ -129,6 +176,7 @@ fishnet_cal <- fishnet_cal %>%
   mutate(inundated_binary = ifelse(!is.na(inundated) & inundated != 0, 1, 0))
 
 ```
+
 
 ## 2.2 Normalize elevation and flow accumulation data in two cities
 
@@ -154,157 +202,196 @@ fishnet_por$Nor_Flow_accu <- rescale(fishnet_por$Flow_accu, to = c(0, 10000))
 
 # 3. Exploratory analysis
 
-## 3.1. Maps
+## 3.1. Data selected
 
 ### 3.1.1 Elevation
 
-```{r}
-# -------Plotting Elevation--------
-names(Elevation_cal) <- "elevation"
-elev_df <- as.data.frame(Elevation_cal, xy = TRUE, na.rm = TRUE)
+```{r Elevation, fig.height=5, fig.width=10}
 
-ggplot(elev_df, aes(x = x, y = y, fill = elevation)) +
+Elevation_cal_plot <- ggplot(Elevation_cal_df, aes(x = x, y = y, fill = Elevation)) +
+
   geom_raster() +
-  scale_fill_viridis_c(name = "Elevation (m)", option = "viridis") +
-  coord_equal() +
-  labs(
-    title = "Elevation Map of Calgary Area",
-    x = "Easting (meters)",   # more accurate label
-    y = "Northing (meters)"
-  ) +
-  theme_minimal()
-
-# ----------Plotting Slope----------
-names(Slope_cal) <- "slope"
-city_boundary_proj <- st_transform(city_boundary_cal, crs(Slope_cal))
-slope_masked <- mask(crop(Slope_cal, vect(city_boundary_proj)), vect(city_boundary_proj))
-slope_df <- as.data.frame(slope_masked, xy = TRUE, na.rm = TRUE)
-ggplot(slope_df, aes(x = x, y = y, fill = slope)) +
-  geom_raster() +
-  scale_fill_viridis_c(name = "Slope (degrees)", option = "magma", direction = -1) +
-  coord_equal() +
-  labs(
-    title = "Slope Map of Calgary ",
-    x = "Easting (meters)",
-    y = "Northing (meters)"
-  ) +
-  theme_minimal()
-
-# --------Plotting distance to river----------
-names(Dis_River_cal) <- "distance_to_river"
-city_boundary_proj <- st_transform(city_boundary, crs(Dis_River_cal))
-river_masked <- mask(crop(Dis_River_cal, vect(city_boundary_proj)), vect(city_boundary_proj))
-river_df <- as.data.frame(river_masked, xy = TRUE, na.rm = TRUE)
-colnames(river_df)[3] <- "distance_to_river"
-ggplot(river_df, aes(x = x, y = y, fill = distance_to_river)) +
-  geom_raster() +
-  scale_fill_viridis_c(
-    name = "Distance to River (m)",
-    option = "plasma",
-    direction = -1
-  ) +
-  coord_equal() +
-  labs(
-    title = "Updated Distance to River",
-    x = "Easting (meters)",
-    y = "Northing (meters)"
-  ) +
-  theme_minimal()
-
-# --------Plotting flow accumulation--------
-names(Flow_accu_cal) <- "flow_acc"
-city_boundary_proj <- st_transform(city_boundary, crs(Flow_accu_cal))
-flow_masked <- mask(crop(Flow_accu_cal, vect(city_boundary_proj)), vect(city_boundary_proj))
-flow_df <- as.data.frame(flow_masked, xy = TRUE, na.rm = TRUE)
-colnames(flow_df)[3] <- "flow_acc"
-
-flow_mean <- mean(flow_df$flow_acc, na.rm = TRUE)
-flow_sd   <- sd(flow_df$flow_acc, na.rm = TRUE)
-lower <- flow_mean - 2 * flow_sd
-upper <- flow_mean + 2 * flow_sd
-
-flow_df <- flow_df %>%
-  mutate(flow_stretched = pmax(pmin(flow_acc, upper), lower))
-ggplot(flow_df, aes(x = x, y = y, fill = flow_stretched)) +
-  geom_raster() +
-  scale_fill_viridis_c(
-    name = "Flow Accumulation (±2 SD)",
-    option = "inferno"
-  ) +
-  coord_equal() +
-  labs(
-    title = "Flow Accumulation in Calgary (Stretched by ±2 SD)",
-    x = "Easting (meters)",
-    y = "Northing (meters)"
-  ) +
-  theme_minimal()
-
-# -------Plotting land cover by grassland, developed, and forest------
-target_crs <- crs(Elevation_cal)
-developed_area  <- st_transform(developed_area, target_crs)
-grassland_area  <- st_transform(grassland_area, target_crs)
-forest_area     <- st_transform(forest_area, target_crs)
-developed_area  <- st_zm(developed_area)
-grassland_area  <- st_zm(grassland_area)
-forest_area     <- st_zm(forest_area)
-developed_area  <- developed_area  %>% select(geometry) %>% mutate(landcover = "Developed")
-grassland_area  <- grassland_area  %>% select(geometry) %>% mutate(landcover = "Grassland")
-forest_area     <- forest_area     %>% select(geometry) %>% mutate(landcover = "Forest")
-landcover_plot <- rbind(developed_area, grassland_area, forest_area)
-
-ggplot() +
-  geom_sf(data = landcover_plot, aes(fill = landcover), color = NA, alpha = 0.8) +
-  scale_fill_manual(
-    values = c(
-      "Developed" = "#e41a1c",
-      "Grassland" = "#4daf4a",
-      "Forest"    = "#377eb8"
-    ),
-    name = "Land Cover Type"
-  ) +
-  coord_sf() +
-  labs(
-    title = "Land Cover Map of Calgary",
-    x = "Longitude",
-    y = "Latitude"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "right",
-    legend.title = element_text(size = 11, face = "bold"),
-    legend.text = element_text(size = 10)
-  )
-```
-
-Let's plot the sf object of our protected lands on top of our counties.
-We give the shape some color and transparency (alpha).
-
-```{r first_plot, warning = FALSE, message = FALSE}
-ggplot() +
-  #geom_sf(data = fishnet_boundary_Portland)+
-  geom_sf(data = developed_por, 
-          fill = "blue", 
-          color = "blue",
-          alpha = 0.6) +
-  labs(title="Water Area in Portland") +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Elevation (m)") +
+  coord_equal() +  
   theme_void()
+
+Elevation_por_plot <- ggplot(Elevation_por_df, aes(x = x, y = y, fill = Elevation)) +
+  geom_raster() +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Elevation (m)") +
+  coord_equal() +  
+  theme_void()
+
+
+# Add titles aligned at same level
+plot_grid(
+  ggdraw() + draw_label("Elevation Map of Calgary", x = 0.5, hjust = 0.5),
+  ggdraw() + draw_label("Elevation Map of Portland", x = 0.5, hjust = 0.5),
+  Elevation_cal_plot, Elevation_por_plot,
+  ncol = 2, rel_heights = c(0.1, 1),
+  align = "v", axis = "lr"
+)
+
+
+```
+
+### 3.1.2 Slope
+
+```{r Slope, fig.height=5, fig.width=10}
+
+Slope_cal_plot <- ggplot(Slope_cal_df, aes(x = x, y = y, fill = Slope)) +
+  geom_raster() +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Slope (%)") +
+  coord_equal() +  
+  theme_void()
+
+Slope_por_plot <- ggplot(Slope_por_df, aes(x = x, y = y, fill = Slope)) +
+  geom_raster() +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Slope (%)") +
+  coord_equal() +  
+  theme_void()
+  
+# Add titles aligned at same level
+plot_grid(
+  ggdraw() + draw_label("Slope Map of Calgary", x = 0.5, hjust = 0.5),
+  ggdraw() + draw_label("Slope Map of Portland", x = 0.5, hjust = 0.5),
+  Slope_cal_plot, Slope_por_plot,
+  ncol = 2, rel_heights = c(0.1, 1),
+  align = "v", axis = "lr"
+)
+
+```
+
+### 3.1.3 Distance to River
+
+
+```{r Distance_to_River, fig.height=5, fig.width=10}
+
+Dis_River_cal_plot <- ggplot(Dis_River_cal_df, aes(x = x, y = y, fill = Dis_River)) +
+  geom_raster() +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance to River (m)") +
+  coord_equal() +  
+  theme_void()
+
+Dis_River_por_plot <- ggplot(Dis_River_por_df, aes(x = x, y = y, fill = Dis_River)) +
+  geom_raster() +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                      name = "Distance to River (m)") +
+  coord_equal() +  
+  theme_void()
+
+
+# Add titles aligned at same level
+plot_grid(
+  ggdraw() + draw_label("Distance to River Map of Calgary", x = 0.5, hjust = 0.5),
+  ggdraw() + draw_label("Distance to River Map of Portland", x = 0.5, hjust = 0.5),
+  Dis_River_cal_plot, Dis_River_por_plot,
+  ncol = 2, rel_heights = c(0.1, 1),
+  align = "v", axis = "lr"
+)
+
+```
+
+### 3.1.4 Flow Accumulation
+
+```{r Flow_Accumulation, fig.height=8, fig.width=10}
+
+Flow_accu_cal_plot <- ggplot(Flow_accu_cal_df, aes(x = x, y = y, fill = sqrt(Flow_accu))) +
+  geom_raster() +
+  scale_fill_gradientn(colors = c("#9AC3BB", "#033E56", "#033E56","#033E56", "#033E56", "#033E56"), na.value = "#e9e9e9",
+                      limits = c(15,  sqrt(max(Flow_accu_cal_df$Flow_accu, na.rm = TRUE))),
+                      name = "Distance to River (m)") +
+  coord_equal() +  
+  theme_void() + theme(legend.position = "none")
+
+
+
+Flow_accu_por_plot <- ggplot(Flow_accu_por_df, aes(x = x, y = y, fill = sqrt(Flow_accu))) +
+  geom_raster() +
+  scale_fill_gradientn(colors = c("#9AC3BB", "#033E56", "#033E56","#033E56", "#033E56", "#033E56"), na.value = "#e9e9e9",
+                      limits = c(15, sqrt(max(Flow_accu_por_df$Flow_accu, na.rm = TRUE))),
+                      name = "Distance to River (m)") +
+  coord_equal() +  
+  theme_void() + theme(legend.position = "none")
+
+
+# Add titles aligned at same level
+plot_grid(
+  ggdraw() + draw_label("Flow Accumulation Map of Calgary", x = 0.5, hjust = 0.5),
+  ggdraw() + draw_label("Flow Accumulation Map of Portland", x = 0.5, hjust = 0.5),
+  Flow_accu_cal_plot, Flow_accu_por_plot,
+  ncol = 2, rel_heights = c(0.1, 1),
+  align = "v", axis = "lr"
+)
+
+```
+
+### 3.1.5 Landcover
+
+
+```{r Landcover, fig.height=5, fig.width=10}
+
+Dis_River_cal_plot <- ggplot() + 
+    geom_sf(data = city_boundary_cal_proj, fill = "#e9e9e9", col = "grey") +
+    geom_sf(data = developed_cal, fill = "#033E56", col = "#f4f4f4", linewidth = 0.1) +  
+    geom_sf(data = forest_cal, fill = "#9AC3BB", col = "#f4f4f4", linewidth = 0.1) + 
+    geom_sf(data = grassland_cal, fill = "#D3D477", col = "transparent", linewidth = 0.1) + 
+    theme_void()
+
+Dis_River_por_plot <- ggplot() + 
+    geom_sf(data = city_boundary_por, fill = "#e9e9e9", col = "grey") +
+    geom_sf(data = developed_por, fill = "#033E56", col = "#f4f4f4", linewidth = 0.1) +  
+    geom_sf(data = forest_por, fill = "#9AC3BB", col = "#f4f4f4", linewidth = 0.1) + 
+    geom_sf(data = grassland_por, fill = "#D3D477", col = "transparent") + 
+    theme_void()
+
+# Add titles aligned at same level
+plot_grid(
+  ggdraw() + draw_label("Landcover Map of Calgary", x = 0.5, hjust = 0.5),
+  ggdraw() + draw_label("Landcover to River Map of Portland", x = 0.5, hjust = 0.5),
+  Dis_River_cal_plot, Dis_River_por_plot,
+  ncol = 2, rel_heights = c(0.1, 1),
+  align = "v", axis = "lr"
+)
+
+```
+
+## 3.2 Fishnet Construction
+
+### 3.2.1 Convert original data into fishnet
+
+
+```{r fishnet_cal, fig.height=5, fig.width=10}
+
+fishnet_cal_flow_plot <- ggplot() + 
+  geom_sf(data = fishnet_cal, aes(fill = Flow_accu), col = "transparent", color = NA) +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
+                    name = "Elevation (m)") + 
+  theme_void()
+
+Dis_River_por_plot <- ggplot() + 
+    geom_sf(data = city_boundary_por, fill = "#e9e9e9", col = "grey") +
+    geom_sf(data = developed_por, fill = "#033E56", col = "#f4f4f4", linewidth = 0.1) +  
+    geom_sf(data = forest_por, fill = "#9AC3BB", col = "#f4f4f4", linewidth = 0.1) + 
+    geom_sf(data = grassland_por, fill = "#D3D477", col = "transparent") + 
+    theme_void()
+
+# Add titles aligned at same level
+plot_grid(
+  ggdraw() + draw_label("Landcover Map of Calgary", x = 0.5, hjust = 0.5),
+  ggdraw() + draw_label("Landcover to River Map of Portland", x = 0.5, hjust = 0.5),
+  fishnet_cal_flow_plot, Flow_accu_cal_plot,
+  ncol = 2, rel_heights = c(0.1, 1),
+  align = "v", axis = "lr"
+)
+
 ```
 
 ```{r}
-# Convert raster to data frame
-dem_df_Portland <- as.data.frame(dem_Portland, xy = TRUE)
-colnames(dem_df_Portland) <- c("x", "y", "elevation")
-
-# Create plot
-ggplot() +
-  geom_raster(data = dem_df_Portland, aes(x = x, y = y, fill = elevation)) +
-  scale_fill_gradientn(colors = terrain.colors(100)) +
-  ggtitle("DEM Visualization") +
-  coord_equal()  +
-  theme_void()
-```
-
-
 # 4. Exploratory Data Analysis (EDA)
 
 ## 4.1 Grouped Bar Plot
@@ -334,6 +421,8 @@ floodEDA %>%
 ```
 
 ## 4.2 Violin Plot
+
+
 
 Shows distribution shape and spread of each variable across classes. Helps detect skewness or overlap.
 
@@ -653,21 +742,5 @@ The model showed strong overall performance, with an accuracy of 91.47% on the t
 When applied to Portland, the model generated a flood risk map, successfully transferring Calgary-trained insights to a different city. The prediction map identified flood-prone areas aligned with low-lying regions and rivers in Portland. This demonstrates the practical value of spatial logistic regression in urban flood risk planning, especially when inundation data may be limited in the target region.\
 
 Overall, the model provides a useful, interpretative, and transferable tool for flood inundation probability prediction, especially in cities with similar environmental and urban characteristics. Future study may include incorporating temporal rainfall data and more localized ground data to better detect inundation risk and support urban planning efforts.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
