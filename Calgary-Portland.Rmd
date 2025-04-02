@@ -13,7 +13,8 @@ editor_options:
     wrap: 72
 ---
 
-# 1. Introduction
+
+## 1. Introduction
 
 Flooding is one of the most costly and catastrophic natural hazards,
 especially in urban environments where impervious surfaces and
@@ -21,7 +22,7 @@ population density increase exposure. Inundation risks are also
 projected to rise due to climate change, continued urban development,
 and aging infrastructure. In light of these risks, predictive modelling
 of flooding inundation can inform strategic planning and identify
-vulnerable area in Portland in advance.\
+vulnerable area in Portland in advance.     
 
 This project develops a spatial logistic regression model using the 2013
 Calgary flood as a reference event. The model includes geographical and
@@ -31,7 +32,7 @@ flood inundation across a city. These variables were derived using
 GIS-based pre-processing and extracted at the grid-cell level for
 analysis in R. The model was trained on 70% of Calgary data and tested
 on the remaining 30%. It was then applied to a comparable city -
-Portland, Oregon to evaluate flood inundation probability.\
+Portland, Oregon to evaluate flood inundation probability.     
 
 Key results indicate that all variables were statistically significant,
 and the model performed well in predicting inundated and non-inundated
@@ -41,7 +42,7 @@ confirmed the model's ability to generalize beyond the training data.
 When applied to Portland, the model successfully identifies high
 inundation probability areas.
 
-# 2. Setup
+## 2. Setup
 
 ```{r libraries, warning = FALSE, message = FALSE}
 
@@ -81,14 +82,13 @@ my_colors_f <- c("#ED6328", "#FAAE41", "#D3D477",  "#9AC3BB", "#033E56")
 
 ```
 
+### 2.1 Load spatial data, including city boundary and variables
 
-## 2.1 Load spatial data, including city boundary and variables
-
-To develop the model, spatial datasets are loaded for both Calgary and
+To develop the model, spatial data sets are loaded for both Calgary and
 Portland, including Elevation, Slope, Flow Accumulation, Distance to
-River, and Land Cover (Developed, Forest, and Grassland).  
+River, and Land Cover (Developed, Forest, and Grassland).
 
-__The coordinate systems used in this study is:__  
+**The coordinate systems used in this study is:**
 
 GS_1984_Web_Mercator_Auxiliary_Sphere
 
@@ -127,10 +127,17 @@ fishnet_por <- st_read("https://raw.githubusercontent.com/junyi2022/Calgary-Port
 
 ```
 
+### 2.2 Normalize elevation and flow accumulation data in two cities
 
-## 2.2 Normalize elevation and flow accumulation data in two cities
-
-When scaling elevation to a range of 0–300, the rationale comes from the elevation ranges of Calgary (967 – 1,290 m) and Portland (3 – 370 m), which have a difference of approximately 300 meters. This standardization ensures comparability across regions. Similarly, scaling flow accumulation is critical because, when applying the model across diverse regions with varying hydrologic networks, normalizing these continuous variables prevents large-magnitude predictors from dominating the model. This maintains consistent variable influence between Calgary and Portland, ensuring balanced and interpretable results.
+When scaling elevation to a range of 0–300, the rationale comes from the
+elevation ranges of Calgary (967 – 1,290 m) and Portland (3 – 370 m),
+which have a difference of approximately 300 meters. This
+standardization ensures comparability across regions. Similarly, scaling
+flow accumulation is critical because, when applying the model across
+diverse regions with varying hydrologic networks, normalizing these
+continuous variables prevents large-magnitude predictors from dominating
+the model. This maintains consistent variable influence between Calgary
+and Portland, ensuring balanced and interpretable results.
 
 ```{r}
 fishnet_cal$Nor_Elevation <- rescale(fishnet_cal$Elevation, to = c(0, 300))
@@ -140,67 +147,49 @@ fishnet_por$Nor_Elevation <- rescale(fishnet_por$Elevation, to = c(0, 300))
 fishnet_por$Nor_Flow_accu <- rescale(fishnet_por$Flow_accu, to = c(0, 10000))
 ```
 
-# 3. Exploratory analysis
+## 3. Exploratory analysis
 
-## 3.1. Data selected
+### 3.1 Selected Spatial Predictors: Feature Mapping in Calgary
 
-To predict flood inundation risk, we selected five spatially derived predictor variables, including Elevation, Flow Accumulation, Distance to River, Slope, and Land Cover. Below, we present maps of the selected features along with a description of the preprocessing steps conducted in ArcGIS Pro prior to incorporating the data into the fishnet grid for logistic regression modeling.    
+To predict flood inundation risk, we selected five spatially derived
+variables:
 
-__Elevation (map: raster map of elevation)__  
+-   **Elevation**: Lower elevation areas are more flood-prone due to more
+    likely to accumulate water. In Calgary, areas inundated during the
+    2013 flood were closely aligned with low elevation zones.
+-   **Flow Accumulation**: It estimates the amount of upstream area
+    contributing to flow at any given cell. Higher values indicate
+    potential overland flow convergence.
+-   **Distance to River**: Calculated using Euclidean distance from the
+    river network. Proximity to water bodies significantly influences
+    inundation risk.
+-   **Slope**: Steeper areas are less likely to retain water. Flat
+    slopes may accumulate runoff.
+-   **Land Cover**: Reclassified into three dominant categories —
+    *Developed*, *Forest*, and *Grassland* — to capture infiltration
+    capacity and runoff characteristics.
 
-Elevation plays a key role in estimating flooring inundation risk. Lower elevation areas are more likely to accumulate water, especially during extreme precipitation events or river overflows. In Calgary, flooded zones during the 2013 event corresponded closely with low-elevation areas.    
+The maps below visualize these predictor variables over Calgary’s
+predicted model:
 
-__Flow accumulation (map: flow accumulation raster, stretched by +-2SD)__   
-
-As a direct proxy for surface runoff concentration, flow accumulation estimates the amount of upstream area contributing to flow at any given cell. High flow accumulation often relates with flooded extents. In this project, it was generated by filling sinks in the DEM, computing flow direction, and then accumulating flow across the terrain.   
-
-__Distance to river (map: euclidean distance raster from river network)__  
-
-This feature was calculated using the Euclidean Distance from Calgary’s river network, sourced from Open Calgary. As flooding typically originates from river during events, proximity is a strong indicator of risk.  
-
-__Land cover (map: reclassified land cover with three classes)__   
-
-Land cover influence infiltration, runoff, and surface roughness. We reclassified the raster into three simplified categories: developed areas (impervious), grasslands, and forests. Developed zones tend to have low infiltration and higher runoff potential, increasing inundation probability.   
-
-__Slope (map: slope in degree)__   
-
-Slope was calculated from the DEM in degrees. Steep slopes are generally less prone to standing water, while flatter areas can accumulate runoff.
-
-
-
-```{r Calgary, fig.height=4, fig.width=10}
-
+```{r}
 Elevation_cal_plot <- ggplot() + 
-  geom_sf(data = fishnet_cal, aes(fill = Nor_Elevation), col = "transparent", color = NA) +
-  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
-                    name = "Elevation (m)") + 
+  geom_sf(data = fishnet_cal, aes(fill = Nor_Elevation), color = NA) +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9", name = "Elevation (m)") + 
   theme_void()
 
 Slope_cal_plot <- ggplot() + 
-  geom_sf(data = fishnet_cal, aes(fill = Slope), col = "transparent", color = NA) +
-  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
-                    name = "Slope (%)") +
+  geom_sf(data = fishnet_cal, aes(fill = Slope), color = NA) +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9", name = "Slope (%)") +
   theme_void()
 
 Dis_River_cal_plot <- ggplot() + 
-  geom_sf(data = fishnet_cal, aes(fill = Dis_River), col = "transparent", color = NA) +
-  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
-                    name = "Distance (m)") + 
+  geom_sf(data = fishnet_cal, aes(fill = Dis_River), color = NA) +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9", name = "Distance (m)") + 
   theme_void()
+```
 
-Flow_accu_cal_plot <- ggplot() + 
-  geom_sf(data = fishnet_cal, aes(fill = Nor_Flow_accu), col = "transparent", color = NA) +
-  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
-                    name = "Flow Accumulation") + 
-  theme_void()
-
-Landcover_cal_plot <- ggplot() + 
-    geom_sf(data = city_boundary_cal, fill = "#e9e9e9", col = "grey") +
-    geom_sf(data = developed_cal, fill = "#033E56", col = "#f4f4f4", linewidth = 0.1) +  
-    geom_sf(data = forest_cal, fill = "#9AC3BB", col = "#f4f4f4", linewidth = 0.1) + 
-    geom_sf(data = grassland_cal, fill = "#D3D477", col = "transparent", linewidth = 0.1) + 
-    theme_void()
-
+```{r Calgary, fig.height=4, fig.width=10}
 plot_grid(
    ggdraw() + draw_label("Elevation", x = 0.5, hjust = 0.5),
    ggdraw() + draw_label("Slope", x = 0.5, hjust = 0.5),
@@ -209,28 +198,47 @@ plot_grid(
    ncol = 3, rel_heights = c(0.1, 1),
    align = "v", axis = "lr"
  )
-
 ```
 
+```{r}
+Flow_accu_cal_plot <- ggplot() + 
+  geom_sf(data = fishnet_cal, aes(fill = Nor_Flow_accu), color = NA) +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9", name = "Flow Accumulation") + 
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8)
+  )
 
-```{r fig.height=3, fig.width=7}
+Landcover_cal_plot <- ggplot() +
+  geom_sf(data = city_boundary_cal, fill = "#e9e9e9", color = "grey80") +
+  geom_sf(data = developed_cal, aes(fill = "Developed"), color = NA) +
+  geom_sf(data = forest_cal, aes(fill = "Forest"), color = NA) +
+  geom_sf(data = grassland_cal, aes(fill = "Grassland"), color = NA) +
+  scale_fill_manual(
+    name = "Land Cover Type",
+    values = c("Developed" = "#033E56", "Forest" = "#9AC3BB", "Grassland" = "#D3D477")
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8)
+  )
+```
 
+```{r fig.height=3, fig.width=6.5, cache=FALSE}
 plot_grid(
-   ggdraw() + draw_label("Flow Accumulation", x = 0.5, hjust = 0.5),
-   ggdraw() + draw_label("Landcover", x = 0.5, hjust = 0.5),
+   ggdraw() + draw_label("Landcover", x = 0.5, hjust = 0.5, size = 11),
+   ggdraw() + draw_label("Flow Accumulation", x = 0.5, hjust = 0.5, size = 11),
    Landcover_cal_plot, Flow_accu_cal_plot, 
    ncol = 2, rel_heights = c(0.1, 1),
    align = "v", axis = "lr"
  )
-
 ```
 
+## 4. Exploratory Data Analysis
 
-# 4. Exploratory Data Analysis (EDA)
-
-## 4.1 Grouped Bar Plot
-
-Compares the mean of each predictor between flooded and non-flooded cells. Useful for identifying variables that may distinguish 0 vs. 1.
+### 4.1 Grouped Bar Plot
 
 ```{r fig.height=7, fig.width=10}
 # Reshape fishnet data into long format for group mean calculation
@@ -256,11 +264,11 @@ floodEDA %>%
 
 ```
 
-## 4.2 Violin Plot
+Group bar plot compares the mean of each predictor between flooded and
+non-flooded cells, which is useful for identifying variables that may distinguish
+0 vs. 1.
 
-
-
-Shows distribution shape and spread of each variable across classes. Helps detect skewness or overlap.
+### 4.2 Violin Plot
 
 ```{r fig.height=7, fig.width=10}
 
@@ -279,11 +287,17 @@ ggplot(floodEDA_violin) +
 
 ```
 
-# 5. Model Training
+Violin plot shows distribution shape and spread of each variable across
+classes, helping with detecting skewness or overlap.
 
-## 5.1 Splitting the Data into Training and Testing Sets
+## 5. Model Training
 
-In our model, we used 70% of the Calgary fishnet grid cells as the training set to build the logistic regression model and the remaining 30% as the test set to evaluate its performance. This ensures that we can further assess how well our model generalizes to new, unseen data.
+### 5.1 Splitting the Data into Training and Testing Sets
+
+In our model, we used 70% of the Calgary fishnet grid cells as the
+training set to build the logistic regression model and the remaining
+30% as the test set to evaluate its performance. This ensures that we
+can further assess how well our model generalizes to new, unseen data.
 
 ```{r}
 set.seed(3456)
@@ -294,9 +308,13 @@ fishnetTrain <- fishnet_cal[trainIndex, ]
 fishnetTest <- fishnet_cal[-trainIndex, ]
 ```
 
-## 5.2 Building the Logistic Regression Model
+### 5.2 Building the Logistic Regression Model
 
-The logistic regression model estimates the probability of flood inundation in Calgary based on several variables, including elevation (normalized), distance to river, slope, flow accumulation(normalized), and land cover types (developed, forest, grassland). The model was fitted using the glm() function with a binomial logit link.
+The logistic regression model estimates the probability of flood
+inundation in Calgary based on several variables, including elevation
+(normalized), distance to river, slope, flow accumulation(normalized),
+and land cover types (developed, forest, grassland). The model was
+fitted using the glm() function with a binomial logit link.
 
 ```{r}
 # Logistic regression model using normalized values
@@ -305,8 +323,12 @@ floodModel <- glm(inundated_binary ~ Nor_Elevation + Dis_River + Slope + Nor_Flo
                   family = binomial(link = "logit"), 
                   data = fishnetTrain %>%
                          as.data.frame() %>%
-                         dplyr::select(-geometry)) 
+                    dplyr::select(-geometry))
 
+summary(floodModel)
+```
+
+```{r}
 # Extract coefficients from the model summary
 model_summary <- coef(summary(floodModel))  
 
@@ -318,18 +340,22 @@ model_table <- as.data.frame(model_summary) %>%
     `z value` = round(`z value`, 4),
     `Pr(>|z|)` = round(`Pr(>|z|)`, 4)
   )
-
 # Display the table using kable
 kable(model_table, caption = "Logistic Regression Model Summary", col.name=c("Variables", 'Estimate','Standard Deviation Error','Z value', 'Pr')) %>%
   kable_styling("striped", full_width = T)
-
 ```
 
-The result indicate that all variables included in the model are statistically significant, with p-values below 0.01, suggesting strong associations with flood risk. In addition, elevation, distance to river, slope, developed land, and grassland all have negative coefficients, meaning they are associated with decreased odds of inundation. In contrast, flow accumulation and forest area are positively associated with higher flood likelihood.
+The result indicate that all variables included in the model are
+statistically significant, with p-values below 0.01, suggesting strong
+associations with flood risk. In addition, elevation, distance to river,
+slope, developed land, and grassland all have negative coefficients,
+meaning they are associated with decreased odds of inundation. In
+contrast, flow accumulation and forest area are positively associated
+with higher flood likelihood.
 
-# 6. Model validation
+## 6. Model Validation
 
-## 6.1 Density of Predicted Flood Risk by Inundation Outcome
+### 6.1 Density of Predicted Flood Risk by Inundation Outcome
 
 ```{r, include=FALSE}
 
@@ -344,13 +370,16 @@ classProbs <- predict(floodModel, newdata = fishnetTest, type = "response")
 ```
 
 ```{r}
-
-hist(classProbs, main = "Distribution of Predicted Flood Probabilities",
-     xlab = "Predicted Probability", col = "#033E56") + 
-  theme_minimal()
+hist(classProbs,
+     main = "Distribution of Predicted Flood Probabilities",
+     xlab = "Predicted Probability",
+     col = "#033E56", border = "white")
 ```
 
-The overall distribution of predicted flood probabilities generated by the logistic regression model for the test set. Most of the predicted probabilities are clustered near zero, indicating that the model classifies the majority of cells as not inundated.
+The overall distribution of predicted flood probabilities generated by
+the logistic regression model for the test set. Most of the predicted
+probabilities are clustered near zero, indicating that the model
+classifies the majority of cells as not inundated.
 
 ```{r}
 testProbs <- data.frame(obs = fishnetTest$inundated_binary, pred = classProbs)
@@ -368,9 +397,16 @@ ggplot(testProbs, aes(x = pred, fill = as.factor(obs))) +
   theme_minimal()
 ```
 
-This density plot shows the distribution of predicted flood probabilities generated by the logistic regression model, separated by the actual observed inundation status (0 = Not Inundated, 1 = Inundated). It reveals that non-flooded cells cluster around low probabilities, while flooded cells have a broader spread, though many still fall below 0.5. Together, these plots suggest the model is good at identifying non-inundated areas but less confident for flooded zones, with some overlap between classes.
+This density plot shows the distribution of predicted flood
+probabilities generated by the logistic regression model, separated by
+the actual observed inundation status (0 = Not Inundated, 1 =
+Inundated). It reveals that non-flooded cells cluster around low
+probabilities, while flooded cells have a broader spread, though many
+still fall below 0.5. Together, these plots suggest the model is good at
+identifying non-inundated areas but less confident for flooded zones,
+with some overlap between classes.
 
-## 6.2 Confusion metrics
+### 6.2 Confusion Metrics
 
 ```{r}
 testProbs$predClass <- ifelse(testProbs$pred > 0.2, 1, 0)
@@ -379,16 +415,33 @@ confusionMatrix(reference = as.factor(testProbs$obs),
                 positive = "1")
 ```
 
-For this model, a threshold of 0.2 was chosen to classify areas as flood-inundated. This lower threshold was selected to prioritize sensitivity. While this increases the chance of false positives (predicting flood where none occurs), it reduces the risk of missing true flood zones, which is important in disaster preparation and planning.
+For this model, a threshold of 0.2 was chosen to classify areas as
+flood-inundated. This lower threshold was selected to prioritize
+sensitivity. While this increases the chance of false positives
+(predicting flood where none occurs), it reduces the risk of missing
+true flood zones, which is important in disaster preparation and
+planning.
 
-The model achieved an overall accuracy of 91.47%. The sensitivity (true positive) is 44.34%, indicating that the model correctly identified approximately 44% of truly inundated locations. In contrast, the specificity is 96.03%, showing its strong performance in correctly identifying non-inundated areas. The Kappa statistic of 0.43 suggests moderate agreement between predicted and actual classes beyond chance.
+The model achieved an overall accuracy of 91.47%. The sensitivity (true
+positive) is 44.34%, indicating that the model correctly identified
+approximately 44% of truly inundated locations. In contrast, the
+specificity is 96.03%, showing its strong performance in correctly
+identifying non-inundated areas. The Kappa statistic of 0.43 suggests
+moderate agreement between predicted and actual classes beyond chance.
 
-### 6.2.1 Interpretation of Confusion Matrix Outcomes
+#### 6.2.1 Interpretation of Confusion Matrix Outcomes
 
-True Positive (TP): The model correctly predicted an area as inundated, and it was actually inundated.\
-False Positive (FP): The model predicted an area as inundated, but it was not actually inundated.\
-True Negative (TN): The model correctly predicted an area as not inundated, and it was truly not inundated.\
-False Negative (FN): The model predicted an area as not inundated, but it was actually inundated.
+-   True Positive (TP): The model correctly predicted an area as
+    inundated, and it was actually inundated.
+
+-   False Positive (FP): The model predicted an area as inundated, but
+    it was not actually inundated.
+
+-   True Negative (TN): The model correctly predicted an area as not
+    inundated, and it was truly not inundated.
+
+-   False Negative (FN): The model predicted an area as not inundated,
+    but it was actually inundated.
 
 ```{r}
 # Table of confusion counts
@@ -410,9 +463,12 @@ kable(confusion_counts, caption = "Confusion Matrix Breakdown") %>%
   kable_styling("striped", full_width = T)
 ```
 
-### 6.2.2 Confusion Matrix Map: Spatial Distribution of Model Predictions
+#### 6.2.2 Confusion Matrix Map: Spatial Distribution of Model Predictions
 
-The map visualizes the spatial distribution of model prediction outcomes for each fishnet cell in Calgary. This full-area map is based on predictions using a threshold of 0.2, providing insights into where the model is performing well and where it is making errors.
+The map visualizes the spatial distribution of model prediction outcomes
+for each fishnet cell in Calgary. This full-area map is based on
+predictions using a threshold of 0.2, providing insights into where the
+model is performing well and where it is making errors.
 
 ```{r fig.height=6, fig.width=8}
 fishnet_cal$predicted_prob <- predict(floodModel, newdata = fishnet_cal, type = "response")
@@ -437,18 +493,26 @@ ggplot(data = fishnet_cal) +
   geom_sf(aes(fill = confusion_type), color = NA, size = 0.01) +
   scale_fill_manual(values = confusion_colors, name = "Results") +
   labs(title = "Confusion Metrics",
-       subtitle = "Full Spatial Classification Based") +
+       subtitle = "Spatial Classification Based") +
   theme_void() +
   theme(legend.position = "right",
         plot.title = element_text(size = 14, face = "bold"))
 ```
 
-Purple is the area correctly identified as inundated, while light gray area indicates correct non-flood predictions. Blue shows where the model predicted flooding but no inundation occurred, and red is missed flood areas that were incorrectly classified as dry. The map shows that many True Positives align with river-adjacent zones, but there are still notable clusters of False Negatives, highlighting areas where the model underestimates the risk — a key concern for flood inundation risk mitigation.
+Light blue is the area correctly identified as inundated, while dark blue
+area indicates correct non-flood predictions. Red shows where the model
+predicted flooding but no inundation occurred, and orange is missed flood
+areas that were incorrectly classified as dry. The map shows that many
+True Positives align with river-adjacent zones, but there are still
+notable clusters of False Negatives, highlighting areas where the model
+underestimates the risk — a key concern for flood inundation risk
+mitigation.
 
+### 6.3 Receiver Operating Characteristic (ROC) Curve & Area Under the Curve (AUC)
 
-## 6.3 Receiver Operating Characteristic (ROC) Curve & Area Under the Curve (AUC)
-
-The ROC curve visualizes the model’s ability to distinguish between flooded (positive) and non-flooded (negative) areas across all classification thresholds.
+The ROC curve visualizes the model’s ability to distinguish between
+flooded (positive) and non-flooded (negative) areas across all
+classification thresholds.
 
 ```{r fig.width=8}
 
@@ -466,11 +530,18 @@ auc_value
 
 ```
 
-The ROC curvature and distance from the diagonal "random guess" line indicate strong discriminatory power. The blue line shows high sensitivity (true positive rate) at low false positive rates, suggesting that the model performs well in identifying flooded areas. The AUC is 0.8059, reflecting a good discriminatory ability.
+The ROC curvature and distance from the diagonal "random guess" line
+indicate strong discriminatory power. The blue line shows high
+sensitivity (true positive rate) at low false positive rates, suggesting
+that the model performs well in identifying flooded areas. The AUC is
+0.8059, reflecting a good discriminatory ability.
 
-## 6.4 Cross-Validation
+### 6.4 Cross-Validation
 
-To assess the model’s generalizability and reduce overfitting risk, we applied 5-fold cross-validation. This method involves splitting the training dataset into five equal parts (folds). The model is trained on four of the folds and validated on the fifth.
+To assess the model’s generalizability and reduce overfitting risk, we
+applied 5-fold cross-validation. This method involves splitting the
+training dataset into five equal parts (folds). The model is trained on
+four of the folds and validated on the fifth.
 
 ```{r}
 # Set up cross-validation control
@@ -486,13 +557,19 @@ print(floodModel_cv)
 
 ```
 
-In our model, cross-validation generated an accuracy of 92.5% and a Kappa statistic of 0.284. The high accuracy confirms the model's strong ability to correctly predict both inundated and non-inundated areas overall. However, the moderate Kappa indicates room for improvement in distinguishing the inundated area from the non-inundated class.
+In our model, cross-validation generated an accuracy of 92.5% and a
+Kappa statistic of 0.284. The high accuracy confirms the model's strong
+ability to correctly predict both inundated and non-inundated areas
+overall. However, the moderate Kappa indicates room for improvement in
+distinguishing the inundated area from the non-inundated class.
 
-# 7. Predict Maps
+## 7. Predict Maps
 
-## 7.1 Predict Maps for Calgary
+### 7.1 Predictive Maps for Calgary
 
-The map displays the spatial distribution of predicted flood risk in Calgary, generated by applying the trained logistic regression model to the entire Calgary fishnet dataset.
+The map displays the spatial distribution of predicted flood risk in
+Calgary, generated by applying the trained logistic regression model to
+the entire Calgary fishnet data set.
 
 ```{r fig.height=6, fig.width=8}
 fishnet_cal$calgaryPredictions <- predict(floodModel, 
@@ -524,11 +601,11 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
-### 7.1.1 Comparison of Observed and Predicted Inundation in Calgary (OPTIONAL)
+#### 7.1.1 Comparison of Observed and Predicted Inundation in Calgary   
 
-The maps provide a visual comparison between the observed 2013 flood inundation in Calgary (left) and the model-predicted high and very high flood risk zones (right). The observed map shows actual flooded areas during the 2013 event, while the prediction map highlights zones the model identified as most at risk.
+The maps provide a visual comparison between the observed 2013 flood inundation in Calgary (left) and the model-predicted high and very high flood risk zones (right). The observed map shows actual flooded areas during the 2013 event, while the prediction map highlights zones the model identified as most at risk. The prediction of a very high risk of inundation can capture most of the inundation areas in the actual flooded areas, especially for the ones near the river. However, it is not good at capturing more isolated inundation areas.       
 
-```{r fig.height=6, fig.width=8}
+```{r fig.height=8, fig.width=14}
 calgary_highrisk <- fishnet_cal %>%
   filter(risk_label %in% c("High", "Very High"))
 
@@ -555,16 +632,21 @@ map_highrisk <- ggplot() +
   theme_void() +
   labs(title = "Predicted High Risk Inundation") +
   theme(legend.position = "bottom")
-map_actual + map_highrisk
 
+plot_grid(
+   map_actual, map_highrisk,
+   ncol = 3
+ )
 ```
 
-Overall, the predicted high-risk areas align well with many of the observed inundated zones, especially along the rivers. This suggests that our model effectively captured key flood-prone regions. However, the predicted map also includes broader areas marked as high risk, especially in the southern and eastern areas, where observed inundation did not occur.
 
-### 7.2 Predict Maps for Portland
+### 7.2 Predictive Maps for Portland
 
-```{r Portland, fig.height=3, fig.width=10}
+### 7.2.1 Input Spatial Variables in Portland
 
+The prediction of Portland uses the same set of variables as Calgary and are processed in the same way.   
+
+```{r}
 Elevation_por_plot <- ggplot() + 
   geom_sf(data = fishnet_por, aes(fill = Nor_Elevation), col = "transparent", color = NA) +
   scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
@@ -582,20 +664,9 @@ Dis_River_por_plot <- ggplot() +
   scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
                     name = "Distance (m)") + 
   theme_void()
+```
 
-Flow_accu_por_plot <- ggplot() + 
-  geom_sf(data = fishnet_por, aes(fill = Nor_Flow_accu), col = "transparent", color = NA) +
-  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9",
-                    name = "Flow Accumulation") + 
-  theme_void()
-
-Landcover_por_plot <- ggplot() + 
-    geom_sf(data = city_boundary_por, fill = "#e9e9e9", col = "grey") +
-    geom_sf(data = developed_por, fill = "#033E56", col = "#f4f4f4", linewidth = 0.1) +  
-    geom_sf(data = forest_por, fill = "#9AC3BB", col = "#f4f4f4", linewidth = 0.1) + 
-    geom_sf(data = grassland_por, fill = "#D3D477", col = "transparent", linewidth = 0.1) + 
-    theme_void()
-
+```{r Portland, fig.height=3, fig.width=10}
 plot_grid(
    ggdraw() + draw_label("Elevation", x = 0.5, hjust = 0.5),
    ggdraw() + draw_label("Slope", x = 0.5, hjust = 0.5),
@@ -607,20 +678,43 @@ plot_grid(
 
 ```
 
+```{r}
+Flow_accu_por_plot <- ggplot() + 
+  geom_sf(data = fishnet_por, aes(fill = Nor_Flow_accu), color = NA) +
+  scale_fill_gradientn(colors = my_colors, na.value = "#e9e9e9", name = "Flow Accumulation") + 
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8)
+  )
 
-```{r fig.height=2.5, fig.width=7}
+Landcover_por_plot <- ggplot() +
+  geom_sf(data = city_boundary_por, fill = "#e9e9e9", color = "grey80") +
+  geom_sf(data = developed_por, aes(fill = "Developed"), color = NA) +
+  geom_sf(data = forest_por, aes(fill = "Forest"), color = NA) +
+  geom_sf(data = grassland_por, aes(fill = "Grassland"), color = NA) +
+  scale_fill_manual(
+    name = "Land Cover Type",
+    values = c("Developed" = "#033E56", "Forest" = "#9AC3BB", "Grassland" = "#D3D477")
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8)
+  )
+```
 
+```{r fig.height=2.5, fig.width=6, cache=FALSE}
 plot_grid(
-   ggdraw() + draw_label("Flow Accumulation", x = 0.5, hjust = 0.5),
-   ggdraw() + draw_label("Landcover", x = 0.5, hjust = 0.5),
+   ggdraw() + draw_label("Flow Accumulation", x = 0.5, hjust = 0.5, size = 11),
+   ggdraw() + draw_label("Landcover", x = 0.5, hjust = 0.5, size = 11),
    Flow_accu_por_plot, Landcover_por_plot, 
    ncol = 2, rel_heights = c(0.1, 1),
    align = "v", axis = "lr"
  )
-
 ```
 
-This map presents the predicted flood inundation risk in Portland, derived by applying the logistic regression model trained on Calgary's 2013 flood data. The predicted probabilities were scaled and categorized into five quantile-based risk levels: Very Low, Low, Moderate, High, and Very High.
+### 7.2.2 Prediction of Flood Inundation Probability in Portland
 
 ```{r fig.height=6, fig.width=8}
 fishnet_por$portlandPredictions <- predict(floodModel, 
@@ -653,14 +747,43 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
-# 8. Summary
+This map presents the predicted flood inundation risk in Portland,
+derived by applying the logistic regression model trained on Calgary's
+2013 flood data. The predicted probabilities were scaled and categorized
+into five quantile-based risk levels: Very Low, Low, Moderate, High, and
+Very High.
 
-The Calgary-Portland inundation prediction model uses logistic regression to estimate flood inundation risk based on key environmental and spatial predictors, including elevation, slope, distance to river, flow accumulation, and land cover. The model was trained on Calgary’s 2013 flood data, then validated and applied to both Calgary and Portland.\
+## 8. Summary
 
-The model showed strong overall performance, with an accuracy of 91.47% on the test data and an AUC score of 0.8059, indicating good discriminatory power. The confusion matrix analysis revealed a trade-off between sensitivity (44.34%) and specificity (96.03%), reflecting the model’s greater strength in identifying non-flooded areas than inundated areas. The model is more uncertain in distinguishing flooded zones — an important consideration when prioritizing areas for flood inundation mitigation and preparation.\
+The Calgary-Portland inundation prediction model uses logistic
+regression to estimate flood inundation risk based on key environmental
+and spatial predictors, including elevation, slope, distance to river,
+flow accumulation, and land cover. The model was trained on Calgary’s
+2013 flood data, then validated and applied to both Calgary and
+Portland.
 
-When applied to Portland, the model generated a flood risk map, successfully transferring Calgary-trained insights to a different city. The prediction map identified flood-prone areas aligned with low-lying regions and rivers in Portland. This demonstrates the practical value of spatial logistic regression in urban flood risk planning, especially when inundation data may be limited in the target region.\
+The model showed strong overall performance, with an accuracy of 91.47%
+on the test data and an AUC score of 0.8059, indicating good
+discriminatory power. The confusion matrix analysis revealed a trade-off
+between sensitivity (44.34%) and specificity (96.03%), reflecting the
+model’s greater strength in identifying non-flooded areas than inundated
+areas. The model is more uncertain in distinguishing flooded zones — an
+important consideration when prioritizing areas for flood inundation
+mitigation and preparation.     
 
-Overall, the model provides a useful, interpretative, and transferable tool for flood inundation probability prediction, especially in cities with similar environmental and urban characteristics. Future study may include incorporating temporal rainfall data and more localized ground data to better detect inundation risk and support urban planning efforts.
+When applied to Portland, the model generated a flood risk map,
+successfully transferring Calgary-trained insights to a different city.
+The prediction map identified flood-prone areas aligned with low-lying
+regions and rivers in Portland. This demonstrates the practical value of
+spatial logistic regression in urban flood risk planning, especially
+when inundation data may be limited in the target region.     
+
+Overall, the model provides a useful, interpretative, and transferable
+tool for flood inundation probability prediction, especially in cities
+with similar environmental and urban characteristics. Future study may
+include incorporating temporal rainfall data and more localized ground
+data to better detect inundation risk and support urban planning
+efforts.     
+
 
 
